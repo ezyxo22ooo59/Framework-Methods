@@ -1,0 +1,173 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+The [R plugin](https://www.jetbrains.com/help/pycharm/r-plugin-support.html) for IntelliJ-based IDEs provides
+handy capabilities to work with the [R Markdown](https://www.jetbrains.com/help/pycharm/r-markdown.html) files.
+To [add](https://www.jetbrains.com/help/pycharm/r-markdown.html#add-code-chunk) a new R chunk,
+position the caret at any line or the code chunk, then click "+".
+
+The code chunk appears:
+```{r}
+```
+
+Type any R code in the chunk, for example:
+```{r}
+setwd('/Users/emilyziyixiao/DataspellProjects/Framework&MethodsHW/')
+
+wages <- read.csv('assignment7_wages.csv',stringsAsFactors = TRUE)
+```
+
+Now, click the **Run** button on the chunk toolbar to [execute](https://www.jetbrains.com/help/pycharm/r-markdown.html#run-r-code) the chunk code. The result should be placed under the chunk.
+Click the **Knit and Open Document** to build and preview an output.
+```{r}
+wages <- wages[wages$earn>0,]
+
+summary(wages)
+```
+```{r}
+black_earn <- wages[wages$race == 'black', "earn"]
+white_earn <- wages[wages$race == 'white', "earn"]
+hispanic_earn <- wages[wages$race == 'hispanic', "earn"]
+other_earn <- wages[wages$race == 'other', "earn"]
+
+mean(black_earn)
+mean(white_earn)
+mean(hispanic_earn)
+mean(other_earn)
+```
+```{r}
+set.seed(1731)
+split <- sample(1:nrow(wages),0.75*nrow(wages))
+train <- wages[split,]
+test <- wages[-split,]
+
+mean(train$earn)
+mean(train$height)
+```
+```{r}
+model1 <- lm(earn~height+sex+race+ed+age,data=train)
+summary(model1)
+pred <- predict(model1)
+rmse1 <- sqrt(mean((pred-train$earn)^2)); rmse1
+```
+```{r}
+library(ggplot2)
+ggplot(data=train,aes(y=earn,x=ed))+
+  geom_bar(stat="summary",fun="mean",fill='cadetblue')+
+  facet_wrap(~sex)+
+  theme_bw()
+
+ggplot(data=train,aes(y=earn,x=ed,color=sex))+
+  geom_smooth(method="lm",se=F,size=1.2)+
+  scale_x_continuous(breaks=c(seq(2,20,2)))+
+  scale_y_continuous(breaks=c(seq(0,100000,10000)))+
+  theme_bw()
+
+```
+```{r}
+model_sex_ed <- lm(earn~sex + ed + sex*ed,data=train)
+summary(model_sex_ed)
+```
+```{r}
+model2 <- lm(earn~height+sex+race+ed+age+sex*ed,data=train)
+summary(model2)
+pred <- predict(model2)
+rmse2 <- sqrt(mean((pred-train$earn)^2)); rmse2
+
+```
+```{r}
+model3 <- lm(earn~height+sex+race+ed+age+sex*ed+sex*age,data=train)
+summary(model3)
+pred <- predict(model3)
+rmse3 <- sqrt(mean((pred-train$earn)^2)); rmse3
+```
+```{r}
+model4 <- lm(earn~height+sex+race+ed+age+sex*ed+sex*age+age*ed,data=train)
+summary(model4)
+pred <- predict(model4)
+rmse4 <- sqrt(mean((pred-train$earn)^2)); rmse4
+```
+```{r}
+model5 <- lm(earn~(height+sex+race+ed+age)^2,data=train)
+summary(model5)
+pred <- predict(model5)
+rmse5 <- sqrt(mean((pred-train$earn)^2)); rmse5
+```
+```{r}
+pred5_test <- predict(model5, newdata = test)
+rmse5_test <- sqrt(mean((pred5_test - test$earn)^2)); rmse5_test
+```
+```{r}
+library(rpart)
+library(rpart.plot)
+
+tree1 <- rpart(earn~height+sex+race+ed+age,data = train)
+#rpart.plot(tree1, digits=5)
+prp(tree1,digits=5)
+
+pred <- predict(tree1)
+rmse6 <- sqrt(mean((pred-train$earn)^2)); rmse6
+
+```
+```{r}
+pred6_test <- predict(tree1, newdata = test)
+rmse6_test <- sqrt(mean((pred6_test - test$earn)^2)); rmse6_test
+```
+```{r}
+treeSimp1 <- rpart(earn~.,data=train,control=rpart.control(minbucket=20))
+prp(treeSimp1,digits=5)
+
+pred <- predict(treeSimp1)
+rmse7 <- sqrt(mean((pred-train$earn)^2)); rmse7
+```
+```{r}
+treeSimp2 <- rpart(earn~.,data=train,control=rpart.control(minbucket=50))
+prp(treeSimp2,digits=5)
+
+pred <- predict(treeSimp2)
+rmse8 <- sqrt(mean((pred-train$earn)^2)); rmse8
+```
+```{r}
+pred8_test <- predict(treeSimp2, newdata = test)
+rmse8_test <- sqrt(mean((pred8_test - test$earn)^2)); rmse8_test
+
+```
+```{r}
+treeComplex1 <- rpart(earn~.,data=train,control=rpart.control(minbucket=5))
+prp(treeComplex1,digits=5)
+
+pred <- predict(treeComplex1)
+rmse9 <- sqrt(mean((pred-train$earn)^2)); rmse9
+```
+```{r}
+treeComplex2 <- rpart(earn~.,data=train,control=rpart.control(minbucket=1))
+prp(treeComplex2,digits=5)
+
+pred <- predict(treeComplex2)
+rmse10 <- sqrt(mean((pred-train$earn)^2)); rmse10
+```
+```{r}
+pred10_test <- predict(treeComplex2, newdata = test)
+rmse10_test <- sqrt(mean((pred10_test - test$earn)^2)); rmse10_test
+```
+```{r}
+trControl = trainControl(method='cv',number = 5)
+tuneGrid = expand.grid(.cp = seq(from = 0.001,to = 0.1,by = 0.001))
+set.seed(617)
+cvModel = train(earn~.,
+                data=train,
+                method="rpart",
+                trControl = trControl,
+                tuneGrid = tuneGrid)
+
+cvModel$results
+
+library(ggplot2)
+ggplot(data=cvModel$results, aes(x=cp, y=RMSE))+
+  geom_line(size=0.5,alpha=0.2)+
+  geom_point(color='brown')+
+  theme_bw()+
+  ggtitle(label=paste('Lowest RMSE is at a cp of ',cvModel$bestTune$cp))
+```

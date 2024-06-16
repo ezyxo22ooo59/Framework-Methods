@@ -1,0 +1,121 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+The [R plugin](https://www.jetbrains.com/help/pycharm/r-plugin-support.html) for IntelliJ-based IDEs provides
+handy capabilities to work with the [R Markdown](https://www.jetbrains.com/help/pycharm/r-markdown.html) files.
+To [add](https://www.jetbrains.com/help/pycharm/r-markdown.html#add-code-chunk) a new R chunk,
+position the caret at any line or the code chunk, then click "+".
+
+The code chunk appears:
+```{r}
+```
+
+Type any R code in the chunk, for example:
+```{r}
+library(ISLR)
+data(OJ)
+
+summary(OJ)
+
+```
+
+Now, click the **Run** button on the chunk toolbar to [execute](https://www.jetbrains.com/help/pycharm/r-markdown.html#run-r-code) the chunk code. The result should be placed under the chunk.
+Click the **Knit and Open Document** to build and preview an output.
+```{r}
+set.seed(1234)
+split <- sample(1:nrow(OJ),0.7*nrow(OJ))
+train <- OJ[split,]
+test <- OJ[-split,]
+
+summary(train)
+```
+```{r}
+mean(train$PriceMM)
+mean(train$DiscMM)
+#priceMinuteMaid <- train[OJ$]
+week275 <- OJ[OJ$WeekofPurchase == 275, 'Purchase']
+```
+```{r}
+
+tree1 <- rpart(Purchase~PriceCH+PriceMM+DiscCH+DiscMM+SpecialCH+SpecialMM+LoyalCH+PriceDiff+PctDiscMM+PctDiscCH,data = train, method = 'class')
+
+pred <- predict(tree1, type='prob', newdata=test)[,2]
+#pred2_test = predict(tree2, type='prob', newdata = test)[,2]
+library(ROCR)
+ROCRpred <- prediction(predictions = pred, labels = test$Purchase)
+auc <- as.numeric(performance(prediction.obj = ROCRpred,measure = 'auc')@y.values); auc
+```
+```{r}
+#tree2 <- rpart(Purchase~PriceCH+PriceMM+DiscCH+DiscMM+SpecialCH+SpecialMM+LoyalCH+PriceDiff+PctDiscMM+PctDiscCH,data = train, method = 'class', control = rpart.control(minsplit = 10, cp = 0.001))
+
+library(caret)
+library(lattice)
+trControl <- trainControl(method='cv',number = 10)
+tuneGrid <- expand.grid(.cp = seq(from = 0,to = 0.1,by = 0.001))
+set.seed(100)
+cvModel <- train(Purchase~PriceCH+PriceMM+DiscCH+DiscMM+SpecialCH+SpecialMM+LoyalCH+PriceDiff+PctDiscMM+PctDiscCH,
+                data=train,
+                method="rpart",
+                trControl = trControl,
+                tuneGrid = tuneGrid)
+
+cvModel$results
+
+library(ggplot2)
+ggplot(data=cvModel$results, aes(x=cp, y=Accuracy))+
+  geom_line(size=0.5,alpha=0.2)+
+  geom_point(color='brown')+
+  theme_bw()+
+  ggtitle(label=paste('Highest Accuract is at a cp of ',cvModel$bestTune$cp))
+```
+```{r}
+tree2 <- rpart(Purchase~PriceCH+PriceMM+DiscCH+DiscMM+SpecialCH+SpecialMM+LoyalCH+PriceDiff+PctDiscMM+PctDiscCH,data = train, method = 'class', control = rpart.control(cp = 0.006))
+
+pred2 <- predict(tree2,newdata=test, type='prob')
+ROCRpred2 <- prediction(pred2[,2],test$Purchase)
+auc2 <- as.numeric(performance(prediction.obj = ROCRpred2,measure = 'auc')@y.values); auc2
+
+```
+```{r}
+library(ipred)
+set.seed(617)
+bag <- bagging(Purchase~PriceCH+PriceMM+DiscCH+DiscMM+SpecialCH+SpecialMM+LoyalCH+PriceDiff+PctDiscMM+PctDiscCH,
+              data = train,
+              nbagg = 1000)
+
+#pred_train <- predict(bag, type = "prob")
+pred3 <- predict(bag, newdata=test, type='prob')
+ROCRpred3 <- prediction(pred3[,2],test$Purchase)
+auc3 <- as.numeric(performance(prediction.obj = ROCRpred3,measure = 'auc')@y.values); auc3
+```
+```{r}
+library(randomForest)
+set.seed(617)
+forest <- randomForest(Purchase~PriceCH+PriceMM+DiscCH+DiscMM+SpecialCH+SpecialMM+LoyalCH+PriceDiff+PctDiscMM+PctDiscCH,
+                      train,
+                      ntree = 1000)
+
+pred4 <- predict(forest, newdata=test, type='prob')
+ROCRpred4 <- prediction(pred4[,2],test$Purchase)
+auc4 <- as.numeric(performance(prediction.obj = ROCRpred4,measure = 'auc')@y.values); auc4
+
+```
+```{r}
+train$Purchase2 <- as.numeric(train$Purchase)-1
+test$Purchase2 <- as.numeric(test$Purchase)-1
+
+library(gbm)
+set.seed(617)
+boost <- gbm(Purchase2~PriceCH+PriceMM+DiscCH+DiscMM+SpecialCH+SpecialMM+LoyalCH+PriceDiff+PctDiscMM+PctDiscCH,
+            data=train,
+            distribution="bernoulli",
+            n.trees = 1000,
+            interaction.depth = 1,
+            shrinkage = 0.04)
+pred5 <- predict(boost, newdata = test, type = "response", n.trees = 100)
+ROCRpred5 <- prediction(pred5,test$Purchase2)
+auc5 <- as.numeric(performance(prediction.obj = ROCRpred5,measure = 'auc')@y.values); auc5
+
+```

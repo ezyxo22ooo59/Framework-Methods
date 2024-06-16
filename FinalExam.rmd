@@ -1,0 +1,135 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+```{r}
+setwd('/Users/emilyziyixiao/DataspellProjects/Framework&MethodsHW/')
+
+data <- read.csv('versionD.csv',stringsAsFactors = TRUE)
+```
+
+Questions 2, 3
+```{r}
+set.seed(617)
+split = sample(1:nrow(data), nrow(data)*0.75)
+train = data[split,]
+test = data[-split,]
+
+summary(test$carat)
+```
+
+Questions 4
+```{r}
+greaterthan2AndFaircut <- train[train$carat > 2 & train$cut =='fair', 'price']
+#greaterthan2AndFaircut <- greaterthan2[greaterthan2$cut == 'Fair', 'price']
+```
+
+Question 5
+```{r}
+library(ggplot2)
+ggplot(data=train,aes(x=carat,y=price))+
+  geom_point()+
+  geom_smooth(method='lm',size=1.3,color='steelblue3')
+```
+
+Question 6
+```{r}
+cor(train$price,train$y)
+```
+Question 7, 8
+```{r}
+model1 = lm(price~y,data=train)
+pred = predict(model1)
+sse = sum((pred - train$price)^2)
+sst = sum((mean(train$price)-train$price)^2)
+model1_r2 = 1 - sse/sst; model1_r2
+
+summary(model1)
+```
+Question 9
+```{r}
+model2 = lm(price~cut,data=train)
+
+summary(model2)
+```
+Question 10, 11, 12
+```{r}
+model3 = lm(price~carat+cut+color+clarity+depth+table,data=train)
+pred3 = predict(model3)
+sse3 = sum((pred3 - train$price)^2)
+sst3 = sum((mean(train$price)-train$price)^2)
+model3_r2 = 1 - sse/sst; model3_r2
+
+summary(model3)
+```
+Question 13
+```{r}
+pred3_test = predict(model3, newdata=test)
+sse3_test = sum((pred - test$price)^2)
+rmse3_test = sqrt(mean((pred3_test-test$price)^2)); rmse3_test
+
+```
+Question 14
+```{r}
+model4 = lm(price~carat+depth+table+x+y+z,data=train)
+library(car)
+vif(model4)
+
+```
+Question 15
+```{r}
+start_mod = lm(price~carat+depth+table+x+y+z,data=train)
+empty_mod = lm(price~carat+depth+table+x+y+z,data=train)
+full_mod = lm(price~.,data=train)
+hybridStepwise = step(start_mod,
+                      scope=list(upper=full_mod,lower=empty_mod),
+                      direction='both')
+summary(hybridStepwise)
+```
+Question 16
+```{r}
+model5 = glm(price_hilo~carat+cut+color+clarity+table,data=train,family='binomial')
+model5
+```
+Question 17
+```{r}
+pred5 = predict(model5,newdata=test,type='response')
+ct = table(sold = test$price_hilo,
+           predictions = as.integer(pred>0.5))
+accuracy = sum(ct[1,1],ct[2,2])/nrow(test); accuracy
+
+```
+Question 19
+```{r}
+model6 = rpart(price_hilo~carat+cut+color+clarity+depth+table,data = train, method = 'class')
+summary(model6)
+```
+Question 20,21
+```{r}
+predict(model6, newdata = data.frame(carat = 0.5), type='prob')
+predict(model6, newdata = data.frame(carat = 2.5), type='prob')
+
+```
+Question 22
+```{r}
+library(randomForest)
+set.seed(3110)
+model7 = randomForest(factor(price_hilo)~carat+cut+color+clarity+depth+table,
+                      train,
+                      ntree = 125)
+summary(model7)
+```
+Question 23
+```{r}
+pred7_test = predict(model7, type='prob', newdata = test)[,2]
+pred7_test_class = factor(ifelse(pred7_test>0.5,'high','low'),
+                          levels = c('low','high'))
+ct = table(test$price_hilo,pred7_test_class)
+accuracy7_test = sum(ct[1,1],ct[2,2])/nrow(test); accuracy7_test
+library(ROCR)
+ROCRPred = prediction(predictions = pred7_test, labels = test$price_hilo)
+auc7 = as.numeric(performance(prediction.obj = ROCRPred,measure = 'auc')@y.values); auc7
+```
+Questions 2, 3
